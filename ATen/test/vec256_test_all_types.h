@@ -135,8 +135,23 @@ struct DomainRange {
 
 template <typename T>
 struct CustomCheck {
-    std::vector<T> Args;
-    T expectedResult;
+    std::vector<ValueType<T>> Args;
+    ValueType<T> expectedResult;
+};
+template<>
+struct CustomCheck<vqint8>{
+    std::vector<c10::qint8> Args;
+    c10::qint8 expectedResult;
+};
+template<>
+struct CustomCheck<vquint8>{
+    std::vector<c10::quint8> Args;
+    c10::quint8 expectedResult;
+};
+template<>
+struct CustomCheck<vqint>{
+    std::vector<c10::qint32> Args;
+    c10::qint32 expectedResult;
 };
 
 template <typename T>
@@ -567,8 +582,19 @@ template<typename T>
 class AssertVec256{
 public:
 
-AssertVec256(const std::string &info, TestSeed seed, const T &expected, const T &actual, std::initializer_list<T> arguments):
-additionalInfo(info), testSeed(seed), exp(expected), act(actual), args(arguments){ 
+AssertVec256(const std::string &info, TestSeed seed, const T &expected, const T &actual, const T& input0)
+:additionalInfo(info), testSeed(seed),  exp(expected), act(actual), arg0(input0), argSize(1)
+{ 
+}
+
+AssertVec256(const std::string &info, TestSeed seed, const T &expected, const T &actual, const T& input0, const T& input1)
+:additionalInfo(info), testSeed(seed),  exp(expected), act(actual), arg0(input0), arg1(input1), argSize(2)
+{ 
+}
+
+AssertVec256(const std::string &info, TestSeed seed, const T &expected, const T &actual, const T& input0, const T& input1, const T& input2)
+:additionalInfo(info), testSeed(seed),  exp(expected), act(actual), arg0(input0), arg1(input1), arg2(input2), argSize(3)
+{ 
 }
 
 AssertVec256(const std::string &info, TestSeed seed, const T &expected, const T &actual):
@@ -586,10 +612,14 @@ std::string operator()(int index) const{
     if(hasSeed){
         stream <<"Test Seed to reproduce: "<< testSeed<<"\n";
     }
-    if(args.size()>0){
+    if(argSize>0){
         stream<<"Arguments:\n";
-        for(auto &x: args){
-            stream<<"#\t "<<x<<"\n";
+        stream<<"#\t "<<arg0<<"\n";
+        if(argSize==2){
+            stream<<"#\t "<<arg1<<"\n";
+        }
+        if(argSize==3){
+            stream<<"#\t "<<arg2<<"\n";
         }
     }
     stream<<"Expected:\n#\t"<< exp <<"\nActual:\n#\t"<<act;
@@ -636,11 +666,13 @@ private:
   TestSeed testSeed;
   T exp;
   T act;
-  std::vector<T> args; 
-  bool hasSeed= true;
+  T arg0;
+  T arg1; 
+  T arg2;
+  int argSize = 0;    
+  bool hasSeed = true;
 
 };
-
 
 template <typename T, typename U = typename CmpHelper<T>::cmpType, bool is_floating_point = std::is_floating_point<U>::value>
 struct ValueGen {
@@ -844,7 +876,7 @@ void test_unary(
             auto input = vec_type::loadu(vals);
             auto actual = actualFunction(input);
             auto vec_expected = vec_type::loadu(expected);
-            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, {input});
+            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input);
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError)) return;
              
         }// trial 
@@ -855,7 +887,7 @@ void test_unary(
             auto input = vec_type{ args[0] };
             auto actual = actualFunction(input);
             auto vec_expected = vec_type{ custom.expectedResult };
-            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, {input});
+            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input);
             if(vecAssert.check()) return;
         }
     }
@@ -903,7 +935,7 @@ void test_binary(
             auto input1 = vec_type::loadu(vals1);
             auto actual = actualFunction(input0, input1);
             auto vec_expected = vec_type::loadu(expected);
-            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, {input0, input1});
+            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input0, input1);
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError))return;
         }// trial 
     }
@@ -914,7 +946,7 @@ void test_binary(
             auto input1 = args.size() > 1 ? vec_type{ args[1] } : vec_type{ args[0] };
             auto actual = actualFunction(input0, input1);
             auto vec_expected = vec_type(custom.expectedResult);
-            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, {input0, input1});
+            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input0, input1);
             if(vecAssert.check()) return;
         }
     }
@@ -969,7 +1001,7 @@ void test_ternary(
             auto input2 = vec_type::loadu(vals2);
             auto actual = actualFunction(input0, input1, input2);
             auto vec_expected = vec_type::loadu(expected);
-            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, {input0, input1, input2});
+            AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input0, input1, input2);
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError)) return;
         }// trial 
     }

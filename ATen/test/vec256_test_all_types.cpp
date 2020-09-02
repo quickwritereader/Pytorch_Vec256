@@ -149,10 +149,10 @@ namespace {
     TYPED_TEST(Rounding, Round) {
         using vec = TypeParam;
         using UVT = UvalueType<TypeParam>;
-        ValueType<vec> case1 = -658.5f;
-        ValueType<vec> exp1 = -658.f;
-        ValueType<vec> case2 = -657.5f;
-        ValueType<vec> exp2 = -658.f;
+        UVT case1 = -658.5f;
+        UVT exp1 = -658.f;
+        UVT case2 = -657.5f;
+        UVT exp2 = -658.f;
         auto test_case = TestingCase<vec>::getBuilder()
             .addDomain(CheckWithinDomains<UVT>{ { {-1000, 1000}} })
             .addCustom({ {case1},exp1 })
