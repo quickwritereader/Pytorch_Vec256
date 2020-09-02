@@ -356,11 +356,18 @@ namespace {
     }
     TYPED_TEST(LogarithmReals, Log1p) {
         using vec = TypeParam;
+        using UVT = UvalueType<TypeParam>;
+        auto test_case =
+            TestingCase<vec>::getBuilder()
+                .addDomain(CheckWithinDomains<UVT>{{{-1, 1000}}, true, getDefaultTolerance<UVT>()})
+                .addDomain(CheckWithinDomains<UVT>{{{1000, 1.e+30}}, true, getDefaultTolerance<UVT>()})
+                .setTrialCount(65536)
+                .setTestSeed(TestSeed());
         test_unary<vec>(
             NAME_INFO(log1p),
             RESOLVE_OVERLOAD(std::log1p),
             [](const vec& v) { return v.log1p(); },
-            createDefaultUnaryTestCase<vec>(TestSeed(), false, true));
+            test_case);
     }
     TYPED_TEST(Exponents, Exp) {
         using vec = TypeParam;
@@ -523,8 +530,8 @@ namespace {
         test_binary<vec>(
             NAME_INFO(mult),
             RESOLVE_OVERLOAD(local_multiply),
-            [](const vec& v0, const vec& v1) { return v0 * v1; },
-            createDefaultBinaryTestCase<vec>(TestSeed(), false, true),
+            [](const vec &v0, const vec &v1) { return v0 * v1; },
+            createDefaultBinaryTestCase<vec>(TestSeed(1599084559967474100), false, true),
             RESOLVE_OVERLOAD(filter_mult_overflow));
     }
     TYPED_TEST(Arithmetics, Division) {
