@@ -103,48 +103,48 @@ template<typename T>
 struct VecTypeHelper{
     using holdType = typename T::value_type;
     using memStorageType = typename T::value_type;
-    static constexpr size_t holdCount= T::size(); 
-    static constexpr size_t unitStorageCount = 1;
+    static constexpr int holdCount= T::size(); 
+    static constexpr int unitStorageCount = 1;
 };
 
 template<>
 struct VecTypeHelper<vcomplex>{
     using holdType = Complex<float>;
     using memStorageType = float;
-    static constexpr size_t holdCount = vcomplex::size();
-    static constexpr size_t unitStorageCount = 2;
+    static constexpr int holdCount = vcomplex::size();
+    static constexpr int unitStorageCount = 2;
 };
 
 template<>
 struct VecTypeHelper<vcomplexDbl>{
     using holdType = Complex<double>;
     using memStorageType = double;
-    static constexpr size_t holdCount = vcomplexDbl::size();
-    static constexpr size_t unitStorageCount = 2;
+    static constexpr int holdCount = vcomplexDbl::size();
+    static constexpr int unitStorageCount = 2;
 };
 
 template<>
 struct VecTypeHelper<vqint8>{
     using holdType = c10::qint8;
     using memStorageType = typename c10::qint8::underlying;
-    static constexpr size_t holdCount = vqint8::size();
-    static constexpr size_t unitStorageCount = 1;
+    static constexpr int holdCount = vqint8::size();
+    static constexpr int unitStorageCount = 1;
 };
 
 template<>
 struct VecTypeHelper<vquint8>{
     using holdType = c10::quint8;
     using memStorageType = typename c10::quint8::underlying;
-    static constexpr size_t holdCount= vquint8::size(); 
-    static constexpr size_t unitStorageCount = 1;
+    static constexpr int holdCount= vquint8::size(); 
+    static constexpr int unitStorageCount = 1;
 };
 
 template<>
 struct VecTypeHelper<vqint>{
     using holdType = c10::qint32;
     using memStorageType = typename c10::qint32::underlying;
-    static constexpr size_t holdCount= vqint::size(); 
-    static constexpr size_t unitStorageCount = 1;
+    static constexpr int holdCount= vqint::size(); 
+    static constexpr int unitStorageCount = 1;
 };
 
 template <typename T>
@@ -276,7 +276,6 @@ std::enable_if_t<!std::is_floating_point<T>::value, bool> check_both_inf(T x,
     T y) {
     return false;
 }
-
 
 template<class T> struct is_complex : std::false_type {};
 
@@ -716,7 +715,26 @@ public:
     }
     operator TestingCase<T, U> && () { return std::move(_case); }
 };
- 
+
+template <typename T>
+typename std::enable_if_t<!is_complex<T>::value&& std::is_unsigned<T>::value, T>
+correctEpsilon(const T& eps)
+{
+    return eps;
+}
+template <typename T>
+typename std::enable_if_t<!is_complex<T>::value && !std::is_unsigned<T>::value, T>
+correctEpsilon(const T& eps)
+{
+    return std::abs(eps);
+}
+template <typename T>
+typename std::enable_if_t<is_complex<Complex<T>>::value, T>
+correctEpsilon(const Complex<T>& eps)
+{
+    return std::abs(eps);
+}
+
 template <typename T>
 class AssertVec256
 {
@@ -769,20 +787,20 @@ public:
         return stream.str();
     }
 
-    bool check(bool bitwise = false, bool check_absError = false, ValueType<T> absError = {}) const
+    bool check(bool bitwise = false, bool checkWithTolerance = false, ValueType<T> toleranceEps = {}) const
     {
         using UVT = UvalueType<T>;
         using BVT = BitType<UVT>;
-        UVT absErr = std::abs(absError);
-        constexpr auto sizeX = VecTypeHelper<T>::holdCount * VecTypeHelper<T>::unitStorageCount;
-        constexpr auto unitStorageCount = VecTypeHelper<T>::unitStorageCount;
+        UVT absErr = correctEpsilon(toleranceEps);
+        constexpr int sizeX = VecTypeHelper<T>::holdCount * VecTypeHelper<T>::unitStorageCount;
+        constexpr int unitStorageCount = VecTypeHelper<T>::unitStorageCount;
         CACHE_ALIGN UVT expArr[sizeX];
         CACHE_ALIGN UVT actArr[sizeX];
         exp.store(expArr);
         act.store(actArr);
         if (bitwise)
         {
-            for (size_t i = 0; i < sizeX; i++)
+            for (int i = 0; i < sizeX; i++)
             {
                 BVT b_exp = bit_cast<BVT>(expArr[i]);
                 BVT b_act = bit_cast<BVT>(actArr[i]);
@@ -791,9 +809,9 @@ public:
                     return true;
             }
         }
-        else if (check_absError)
+        else if (checkWithTolerance)
         {
-            for (size_t i = 0; i < sizeX; i++)
+            for (int i = 0; i < sizeX; i++)
             {
                 EXPECT_EQ(nearlyEqual<UVT>(expArr[i], actArr[i], absErr), true) << expArr[i]<<"!="<< actArr[i]<<"\n"<< getDetail(i / unitStorageCount);      
                 if (::testing::Test::HasFailure())
@@ -802,7 +820,7 @@ public:
         }
         else
         {
-            for (size_t i = 0; i < sizeX; i++)
+            for (int i = 0; i < sizeX; i++)
             {
                 if (std::is_same<UVT, float>::value)
                 {
@@ -951,7 +969,6 @@ void test_binary(
         }
     }
 }
-
 
 template< typename T, typename Op1, typename Op2, typename Filter = std::nullptr_t>
 void test_ternary(
@@ -1215,7 +1232,6 @@ int32_t widening_subtract(T val, T b) {
     return static_cast<int32_t>(val) - static_cast<int32_t>(b);
 }
 
-
 //default testing case
 template<typename T>
 T getDefaultTolerance() {
@@ -1287,7 +1303,6 @@ TestingCase<T> createDefaultBinaryTestCase(TestSeed seed= TestSeed(), bool bitwi
     }
     return testCase;
 }
-
 
 template<typename T>
 TestingCase<T> createDefaultTernaryTestCase(TestSeed seed = TestSeed(), bool bitwise = false, bool checkWithTolerance = false, size_t trials = 0) {
