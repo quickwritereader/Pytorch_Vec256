@@ -466,7 +466,7 @@ namespace {
     TYPED_TEST(Interleave, Interleave) {
         using vec = TypeParam;
         using VT = ValueType<TypeParam>;
-        constexpr auto N = vec::size() * 2L;
+        constexpr auto N = vec::size() * 2LL;
         CACHE_ALIGN VT vals[N];
         CACHE_ALIGN VT interleaved[N];
         auto seed = TestSeed();
@@ -484,7 +484,7 @@ namespace {
     TYPED_TEST(Interleave, DeInterleave) {
         using vec = TypeParam;
         using VT = ValueType<TypeParam>;
-        constexpr auto N = vec::size() * 2L;
+        constexpr auto N = vec::size() * 2LL;
         CACHE_ALIGN VT vals[N];
         CACHE_ALIGN VT interleaved[N];
         auto seed = TestSeed();
@@ -531,7 +531,7 @@ namespace {
             NAME_INFO(mult),
             RESOLVE_OVERLOAD(local_multiply),
             [](const vec &v0, const vec &v1) { return v0 * v1; },
-            createDefaultBinaryTestCase<vec>(TestSeed(1599084559967474100), false, true),
+            createDefaultBinaryTestCase<vec>(TestSeed(), false, true),
             RESOLVE_OVERLOAD(filter_mult_overflow));
     }
     TYPED_TEST(Arithmetics, Division) {
@@ -895,7 +895,7 @@ namespace {
         CACHE_ALIGN c10::qint32 unit_int_vec[el_count];
         CACHE_ALIGN underlying expected_qint_vals[vec::size()];
         typename vec::int_vec_return_type  int_ret;
-        auto seed = TestSeed(427539008439500);
+        auto seed = TestSeed();
         //zero point
         ValueGen<int32_t> generator_zp(min_val, max_val, seed);
         //scale
@@ -918,12 +918,6 @@ namespace {
             auto expected = vec::loadu(expected_qint_vals);
             auto actual = vec::requantize_from_int(int_ret, multiplier, zero_point_val);
             if (AssertVec256<vec>(NAME_INFO(ReQuantizeFromInt), seed, expected, actual).check()) {
-                std::cout.precision(9);
-                std::cout << multiplier << std::endl;
-                std::cout << zero_point_val << std::endl;
-                for (auto& vv : int_ret) {
-                    std::cout << vv << std::endl;
-                }
                 return;
             }
         } //trials;

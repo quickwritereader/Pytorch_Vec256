@@ -1093,7 +1093,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_multiply(T x, T y) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_multiply(Complex<T> x, Complex<T> y) {
-#if defined(CPU_CAPABILITY_DEFAULT) && defined(_MSC_VER)
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
     return x * y;
 #else
     //(a + bi)  * (c + di) = (ac - bd) + (ad + bc)i
