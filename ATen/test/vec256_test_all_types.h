@@ -485,24 +485,22 @@ filter_div_ub(T& val1, T& val2) {
 }
 
 struct TestSeed {
-    TestSeed() : testSeed( std::chrono::high_resolution_clock::now().time_since_epoch().count()){
+    TestSeed() : seed( std::chrono::high_resolution_clock::now().time_since_epoch().count()){
     }
-    TestSeed(uint64_t seed) : testSeed(seed) {
+    TestSeed(uint64_t seed) : seed(seed) {
     }
     uint64_t getSeed() {
-        return testSeed;
+        return seed;
     }
     operator uint64_t () const{
-        return testSeed;
+        return seed;
     }
-    uint64_t nextSeed() {
-        auto ret = testSeed + index;
-        ++index;
-        return ret;
+
+    TestSeed add(uint64_t index) { 
+        return TestSeed(seed + index); 
     }
 private:
-    uint64_t testSeed;
-    int index = 0;
+    uint64_t seed; 
 };
 
 template <typename T, bool is_floating_point = std::is_floating_point<T>::value, bool is_complex = is_complex<T>::value>
@@ -876,13 +874,13 @@ void test_unary(
     auto domains_size = domains.size();
     auto test_trials = testCase.getTrialCount();
     int trialCount = getTrialCount<UVT>(test_trials, domains_size); 
-    TestSeed seed = testCase.getTestSeed(); 
+    TestSeed seed = testCase.getTestSeed();
+    uint64_t changeSeedBy = 0;
     for (const CheckWithinDomains<UVT>& dmn : domains) {
         size_t dmn_argc = dmn.ArgsDomain.size();
         UVT start = dmn_argc > 0 ? dmn.ArgsDomain[0].start : default_start;
         UVT end = dmn_argc > 0 ? dmn.ArgsDomain[0].end : default_end;
-
-        ValueGen<VT> generator(start, end, seed.nextSeed());
+        ValueGen<VT> generator(start, end, seed.add(changeSeedBy));
         for (int trial = 0; trial < trialCount; trial++) {
             for (int k = 0; k < el_count; k++) {
                 vals[k] = generator.get();
@@ -898,6 +896,8 @@ void test_unary(
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError)) return;
              
         }// trial 
+        //inrease Seed 
+        changeSeedBy += 1;
     }
     for (auto& custom : testCase.getCustomChecks()) {
         auto args = custom.Args;
@@ -931,15 +931,15 @@ void test_binary(
     auto test_trials = testCase.getTrialCount();
     int trialCount = getTrialCount<UVT>(test_trials, domains_size); 
     TestSeed seed = testCase.getTestSeed();
+    uint64_t changeSeedBy = 0;
     for (const CheckWithinDomains<UVT>& dmn : testCase.getDomains()) {
         size_t dmn_argc = dmn.ArgsDomain.size();
         UVT start0 = dmn_argc > 0 ? dmn.ArgsDomain[0].start : default_start;
         UVT end0 = dmn_argc > 0 ? dmn.ArgsDomain[0].end : default_end;
         UVT start1 = dmn_argc > 1 ? dmn.ArgsDomain[1].start : default_start;
         UVT end1 = dmn_argc > 1 ? dmn.ArgsDomain[1].end : default_end;
-
-        ValueGen<VT> generator0(start0, end0, seed.nextSeed());
-        ValueGen<VT> generator1(start1, end1, seed.nextSeed());
+        ValueGen<VT> generator0(start0, end0, seed.add(changeSeedBy));
+        ValueGen<VT> generator1(start1, end1, seed.add(changeSeedBy+1));
         for (int trial = 0; trial < trialCount; trial++) {
             for (int k = 0; k < el_count; k++) {
                 vals0[k] = generator0.get();
@@ -955,7 +955,8 @@ void test_binary(
             auto vec_expected = vec_type::loadu(expected);
             AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input0, input1);
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError))return;
-        }// trial 
+        }// trial
+        changeSeedBy += 1;
     }
     for (auto& custom : testCase.getCustomChecks()) {
         auto args = custom.Args;
@@ -991,6 +992,7 @@ void test_ternary(
     auto test_trials = testCase.getTrialCount();
     int trialCount = getTrialCount<UVT>(test_trials, domains_size);
     TestSeed seed = testCase.getTestSeed();
+    uint64_t changeSeedBy = 0;
     for (const CheckWithinDomains<UVT>& dmn : testCase.getDomains()) {
         size_t dmn_argc = dmn.ArgsDomain.size();
         UVT start0 = dmn_argc > 0 ? dmn.ArgsDomain[0].start : default_start;
@@ -999,9 +1001,9 @@ void test_ternary(
         UVT end1 = dmn_argc > 1 ? dmn.ArgsDomain[1].end : default_end;
         UVT start2 = dmn_argc > 2 ? dmn.ArgsDomain[2].start : default_start;
         UVT end2 = dmn_argc > 2 ? dmn.ArgsDomain[2].end : default_end;
-        ValueGen<VT> generator0(start0, end0, seed.nextSeed());
-        ValueGen<VT> generator1(start1, end1, seed.nextSeed());
-        ValueGen<VT> generator2(start2, end2, seed.nextSeed());
+        ValueGen<VT> generator0(start0, end0, seed.add(changeSeedBy));
+        ValueGen<VT> generator1(start1, end1, seed.add(changeSeedBy + 1));
+        ValueGen<VT> generator2(start2, end2, seed.add(changeSeedBy + 2));
 
         for (int trial = 0; trial < trialCount; trial++) {
             for (int k = 0; k < el_count; k++) {
@@ -1021,6 +1023,7 @@ void test_ternary(
             AssertVec256<vec_type> vecAssert(testNameInfo, seed, vec_expected, actual, input0, input1, input2);
             if(vecAssert.check(bitwise, dmn.CheckWithTolerance, dmn.ToleranceError)) return;
         }// trial 
+        changeSeedBy += 1;
     }
 }
 
@@ -1072,7 +1075,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_abs(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_abs(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT)
+#if defined(CPU_CAPABILITY_DEFAULT)  || defined(_MSC_VER)
     return std::abs(x);
 #else
     T real = x.real();
@@ -1090,7 +1093,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_multiply(T x, T y) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_multiply(Complex<T> x, Complex<T> y) {
-#if defined(CPU_CAPABILITY_DEFAULT)
+#if defined(CPU_CAPABILITY_DEFAULT) && defined(_MSC_VER)
     return x * y;
 #else
     //(a + bi)  * (c + di) = (ac - bd) + (ad + bc)i
@@ -1196,8 +1199,14 @@ T quantize_val(float scale, int64_t zero_point, float value) {
 }
 
 template <typename T>
+#if defined(CPU_CAPABILITY_DEFAULT) && defined(_MSC_VER)
+T requantize_from_int(float multiplier, int64_t zero_point, int64_t src) { 
+    int64_t quantize_down = nearbyint(static_cast<float>(src) * multiplier) +
+        zero_point;
+#else
 T requantize_from_int(float multiplier, int64_t zero_point, int64_t src) {
-    int64_t quantize_down = static_cast<int64_t>(zero_point + std::lrintf(src * static_cast<float>(multiplier)));
+    int64_t quantize_down = static_cast<int64_t>(zero_point + std::lrintf(src * multiplier));
+#endif
     constexpr int64_t min = std::numeric_limits<T>::min();
     constexpr int64_t max = std::numeric_limits<T>::max();
     auto ret = static_cast<T>(std::min<int64_t>(std::max<int64_t>(quantize_down, min), max));

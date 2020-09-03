@@ -22,7 +22,7 @@ add_subdirectory(c10)
 link_directories(${CMAKE_BINARY_DIR}/c10)
 list(APPEND DEPENDENCY_LIBS c10)
 if(MSVC)
-    set(OPT_FLAG "/fp:strict ") 
+    set(OPT_FLAG "/fp:strict /bigobj ") 
 else(MSVC)
     set(OPT_FLAG "-O3 -pthread   -fmax-errors=4")
     if("${CMAKE_BUILD_TYPE}" MATCHES "Debug")
@@ -94,7 +94,7 @@ endif()
     string(REGEX REPLACE "/RTC1" "" CMAKE_C_FLAGS_DEBUG  ${OLD_CMAKE_C_FLAGS_DEBUG} )
    
   ENDIF()
-if(NOT USE_SYSTEM_SLEEF)
+if(NOT USE_SYSTEM_SLEEF AND NOT MSVC)
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build sleef static" FORCE)
     set(BUILD_DFT OFF CACHE BOOL "Don't build sleef DFT lib" FORCE)
     set(BUILD_GNUABI_LIBS OFF CACHE BOOL "Don't build sleef gnuabi libs" FORCE)
@@ -179,7 +179,7 @@ endif()
   # Recover build options.
   set(BUILD_SHARED_LIBS ${TEMP_BUILD_SHARED_LIBS} CACHE BOOL "Build shared libs" FORCE)
 
-message(${ATen_THIRD_PARTY_INCLUDE})
+ 
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")# -Wall -fstrict-aliasing  -fsanitize=undefined -fsanitize=float-cast-overflow")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g")
