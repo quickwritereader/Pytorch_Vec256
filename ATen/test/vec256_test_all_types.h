@@ -1199,7 +1199,7 @@ T quantize_val(float scale, int64_t zero_point, float value) {
 }
 
 template <typename T>
-#if defined(CPU_CAPABILITY_DEFAULT) && defined(_MSC_VER)
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
 T requantize_from_int(float multiplier, int64_t zero_point, int64_t src) { 
     int64_t quantize_down = nearbyint(static_cast<float>(src) * multiplier) +
         zero_point;
