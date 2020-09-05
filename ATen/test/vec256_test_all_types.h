@@ -277,6 +277,24 @@ std::enable_if_t<!std::is_floating_point<T>::value, bool> check_both_inf(T x,
     return false;
 }
 
+template<typename T>
+std::enable_if_t<!std::is_floating_point<T>::value, bool> check_both_big(T x, T y) {
+    return false;
+}
+
+template<typename T>
+std::enable_if_t<std::is_floating_point<T>::value, bool> check_both_big(T x, T y) {
+    T cmax = std::is_same<T, float>::value ? static_cast<T>(1e+30) : static_cast<T>(1e+300);
+    T cmin = std::is_same<T, float>::value ? static_cast<T>(-1e+30) : static_cast<T>(-1e+300);
+    //only allow when one is inf
+    bool x_inf = std::isinf(x);
+    bool y_inf = std::isinf(y);
+    bool px = x>0;
+    bool py = y>0;
+    return (px && x_inf && y >= cmax) || (py && y_inf && x >= cmax) ||
+           (!px && x_inf && y<=cmin) || (!py && y_inf && x<=cmin);
+}
+
 template<class T> struct is_complex : std::false_type {};
 
 template<class T> struct is_complex<Complex<T>> : std::true_type {};
@@ -300,8 +318,8 @@ T safe_fpt_division(T f1, T f2)
 template<class T>
 std::enable_if_t<std::is_floating_point<T>::value, bool>
 nearlyEqual(T a, T b, T tolerance) {
-    if (check_both_inf<T>(a,b)) return true;
     if (check_both_nan<T>(a, b)) return true;
+    if (check_both_big(a, b)) return true;
     T absA = std::abs(a);
     T absB = std::abs(b);
     T diff = std::abs(a - b);
@@ -385,6 +403,15 @@ void filter_clamp(T& f, T& s, T& t) {
 template <typename T>
 void filter_zero(T& val) {
     val = is_zero(val) ? (T)1 : val;
+}
+template <typename T>
+std::enable_if_t<is_complex<Complex<T>>::value, void> filter_zero(Complex<T>& val)
+{
+    T rr = val.real();
+    T ii = val.imag();
+    rr = is_zero(rr) ? (T)1 : rr;
+    ii = is_zero(ii) ? (T)1 : ii;
+    val = Complex<T>(rr, ii);
 }
 
 template <typename T>
@@ -1075,14 +1102,16 @@ std::enable_if_t<!is_complex<T>::value, T> local_abs(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_abs(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT)  || defined(_MSC_VER)
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
     return std::abs(x);
 #else
+    PreventFma noFma;
     T real = x.real();
     T imag = x.imag();
     T rr = real * real;
     T ii = imag * imag;
-    return Complex<T>(std::sqrt(rr + ii), 0);
+    T abs = std::sqrt(noFma.add(rr, ii));
+    return Complex<T>(abs, 0);
 #endif
 }
 
@@ -1119,6 +1148,122 @@ std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_multiply(Compl
     T ii = noFma.sub(ad, bc); 
 #endif
     return Complex<T>(rr, ii);
+#endif
+}
+
+
+
+template <typename T>
+std::enable_if_t<!is_complex<T>::value, T> local_division(T x, T y) {
+    return x / y;
+}
+
+template <typename T>
+std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_division(Complex<T> x, Complex<T> y) {
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+    return x / y;
+#else
+    //re = (ac + bd)/abs_2()
+    //im = (bc - ad)/abs_2() 
+    T x_real = x.real();
+    T x_imag = x.imag();
+    T y_real = y.real();
+    T y_imag = y.imag();
+    PreventFma noFma;
+#if defined(CPU_CAPABILITY_VSX)
+    //check multiplication considerin swap and fma
+    T rr = x_real * y_real;
+    T ii = x_imag * y_real;
+    T neg_imag = -y_imag;
+    rr = fma(x_imag, y_imag, rr);
+    ii = fma(x_real, neg_imag, ii);
+    //b.abs_2
+#else
+    T ac = x_real * y_real;
+    T bd = x_imag * y_imag;
+    T ad = x_real * y_imag;
+    T bc = x_imag * y_real;
+    T rr = noFma.add(ac, bd);
+    T ii = noFma.sub(bc, ad); 
+#endif
+    //b.abs_2()
+    T abs_rr = y_real * y_real;
+    T abs_ii = y_imag * y_imag;
+    T abs_2 = noFma.add(abs_rr, abs_ii);
+    rr = rr / abs_2;
+    ii = ii / abs_2;
+    return Complex<T>(rr, ii);
+#endif
+}
+
+
+template <typename T>
+std::enable_if_t<!is_complex<T>::value, T> local_sqrt(T x) {
+    return std::sqrt(x);
+}
+
+template <typename T>
+std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_sqrt(Complex<T> x) {
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+    return std::sqrt(x);
+#else 
+    PreventFma noFma;
+    // sqrt(2) / 2 * [sqrt(abs() + a) + sgn(b) * sqrt(abs() - a)i]
+    T real = x.real();
+    T imag = x.imag(); 
+    T abs = local_abs(x).real();
+    T sqrt2_2 = std::sqrt(static_cast<T>(2)) / static_cast<T>(2);
+    T abs_r = noFma.add(abs, real);
+    T abs_i = noFma.sub(abs, real);
+    T res_r = sqrt2_2 * std::sqrt(abs_r);
+    T res_i = sqrt2_2 * std::sqrt(abs_i);
+    if (std::signbit(imag)) res_i = -res_i;
+    return Complex<T>(res_r, res_i);
+#endif
+}
+
+template <typename T>
+std::enable_if_t<!is_complex<T>::value, T> local_asin(T x) {
+    return std::asin(x);
+}
+
+template <typename T>
+std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_asin(Complex<T> x) {
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+    return std::asin(x);
+#else
+    // asin(x)
+    // = -i*ln(iz + sqrt(1 -z^2))
+    // = -i*ln((ai - b) + sqrt(1 - (a + bi)*(a + bi)))
+    // = -i*ln((-b + ai) + sqrt(1 - (a**2 - b**2) - 2*abi))
+    PreventFma noFma;
+    T a = x.real();
+    T b = x.imag();
+    T aa = a * a;
+    T bb = b * b;
+    T _ab = a * (-b);
+    T _2ab = noFma.add(_ab, _ab);
+    T aa_bb = static_cast<T>(1) - noFma.sub(aa, bb); // 1 - (a*a-b*b)
+    Complex<T> temp = Complex<T>(-b,a)+ local_sqrt(Complex<T>(aa_bb, _2ab));
+    auto ln = std::log(temp);
+    //-i*ln() => -i * ln => (ln.imag, -ln.real)
+    return Complex<T>(ln.imag(), -ln.real());
+#endif
+}
+
+template <typename T>
+std::enable_if_t<!is_complex<T>::value, T> local_acos(T x) {
+    return std::acos(x);
+}
+
+template <typename T>
+std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_acos(Complex<T> x) {
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+    return std::acos(x);
+#else
+    // pi/2 - asin(x) 
+    auto half_pi = static_cast<T>(M_PI) / static_cast<T>(2);
+    return Complex<T>(half_pi, 0) - local_asin(x);
 #endif
 }
 
@@ -1199,10 +1344,11 @@ T quantize_val(float scale, int64_t zero_point, float value) {
 }
 
 template <typename T>
-#if defined(CPU_CAPABILITY_DEFAULT) && defined(_MSC_VER)
-T requantize_from_int(float multiplier, int64_t zero_point, int64_t src) { 
-    int64_t quantize_down = nearbyint(static_cast<float>(src) * multiplier) +
-        zero_point;
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+T requantize_from_int(float multiplier, int32_t zero_point, int32_t src) {
+    auto xx = static_cast<float>(src) * multiplier;
+    double xx2 = nearbyint(xx);
+    int32_t quantize_down = xx2 + zero_point; 
 #else
 T requantize_from_int(float multiplier, int64_t zero_point, int64_t src) {
     int64_t quantize_down = static_cast<int64_t>(zero_point + std::lrintf(src * multiplier));
@@ -1249,7 +1395,7 @@ T getDefaultTolerance() {
 
 template<>
 float getDefaultTolerance() {
-    return 1.e-5f;
+    return 5.e-5f;
 }
 
 template<>

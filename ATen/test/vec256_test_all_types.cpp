@@ -167,7 +167,6 @@ namespace {
     }
     TYPED_TEST(Rounding, Ceil) {
         using vec = TypeParam;
-        using UVT = UvalueType<TypeParam>;
         test_unary<vec>(
             NAME_INFO(ceil),
             RESOLVE_OVERLOAD(std::ceil),
@@ -191,28 +190,14 @@ namespace {
             createDefaultUnaryTestCase<vec>(TestSeed()));
     }
     TYPED_TEST(SqrtAndReciprocal, Sqrt) {
-        //pytorch complex sqrt precision differs from std
-        //we will check for error under 0.001
-        using vec = TypeParam;
-        using UVT = UvalueType<TypeParam>;
-        auto test_case =  TestingCase<vec>::getBuilder()
-            .addDomain(CheckWithinDomains<UVT>{ { {0, 100}}, true, 1.e-3f})
-            .setTrialCount(200)
-            .setTestSeed(TestSeed());
-        test_unary<vec>(
-            NAME_INFO(sqrt),
-            RESOLVE_OVERLOAD(std::sqrt),
-            [](vec v) { return v.sqrt(); },
-            test_case);
-    }
-    TYPED_TEST(SqrtAndReciprocalReal, Sqrt) {
         using vec = TypeParam;
         test_unary<vec>(
             NAME_INFO(sqrt),
-            RESOLVE_OVERLOAD(std::sqrt),
+            RESOLVE_OVERLOAD(local_sqrt),
             [](vec v) { return v.sqrt(); },
             createDefaultUnaryTestCase<vec>(TestSeed(), false, true));
     }
+
     TYPED_TEST(SqrtAndReciprocalReal, RSqrt) {
         using vec = TypeParam;
         test_unary<vec>(
@@ -304,31 +289,50 @@ namespace {
             test_case);
     }
     TYPED_TEST(InverseTrigonometric, Asin) {
-        bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
         using vec = TypeParam;
+        using UVT = UvalueType<TypeParam>;
+        bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
+        auto test_case =
+            TestingCase<vec>::getBuilder()
+            .addDomain(CheckWithinDomains<UVT>{ { {-10, 10}}, checkRelativeErr, getDefaultTolerance<UVT>() }) 
+            .setTrialCount(125536)
+            .setTestSeed(TestSeed());
         test_unary<vec>(
             NAME_INFO(asin),
-            RESOLVE_OVERLOAD(std::asin),
+            RESOLVE_OVERLOAD(local_asin),
             [](vec v) { return v.asin(); },
-            createDefaultUnaryTestCase<vec>(TestSeed(), false, checkRelativeErr));
+            test_case);
     }
     TYPED_TEST(InverseTrigonometric, ACos) {
-        bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
         using vec = TypeParam;
+        using UVT = UvalueType<TypeParam>;
+        bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
+        auto test_case =
+            TestingCase<vec>::getBuilder()
+            .addDomain(CheckWithinDomains<UVT>{ { {-10, 10}}, checkRelativeErr, getDefaultTolerance<UVT>() }) 
+            .setTrialCount(125536)
+            .setTestSeed(TestSeed());
         test_unary<vec>(
             NAME_INFO(acos),
-             RESOLVE_OVERLOAD(std::acos),
+             RESOLVE_OVERLOAD(local_acos),
             [](vec v) { return v.acos(); },
-            createDefaultUnaryTestCase<vec>(TestSeed(), false, checkRelativeErr));
+            test_case);
     }
     TYPED_TEST(InverseTrigonometric, ATan) {
         bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
         using vec = TypeParam;
+        using UVT = UvalueType<TypeParam>;
+        auto test_case =
+            TestingCase<vec>::getBuilder()
+            .addDomain(CheckWithinDomains<UVT>{ { {-100, 100}}, checkRelativeErr, getDefaultTolerance<UVT>()})
+            .setTrialCount(65536)
+            .setTestSeed(TestSeed());
         test_unary<vec>(
             NAME_INFO(atan),
             RESOLVE_OVERLOAD(std::atan),
             [](vec v) { return v.atan(); },
-            createDefaultUnaryTestCase<vec>(TestSeed(), false, checkRelativeErr));
+            test_case,
+            RESOLVE_OVERLOAD(filter_zero));
     }
     TYPED_TEST(Logarithm, Log) {
         using vec = TypeParam;
@@ -526,7 +530,6 @@ namespace {
     }
     TYPED_TEST(Arithmetics, Multiplication) {
         using vec = TypeParam;
-        using VT = ValueType<TypeParam>;
         test_binary<vec>(
             NAME_INFO(mult),
             RESOLVE_OVERLOAD(local_multiply),
@@ -536,35 +539,16 @@ namespace {
     }
     TYPED_TEST(Arithmetics, Division) {
         using vec = TypeParam;
-        using VT = ValueType<TypeParam>;
-        //for complex we will use small range and absError against std implementation
-        //because inside our implementation we are using the same type and multiplication easily can become inf
-        // try for example Complex<float>(1.7852e+38,1.65523e+38)/Complex<float>(1.74044e+38,1.57524e+38)
         TestSeed seed;
-        if (is_complex<VT>()) {
-            using UVT = UvalueType<TypeParam>;
-            auto test_case = TestingCase<vec>::getBuilder()
-                .addDomain(CheckWithinDomains<UVT>{ { DomainRange<UVT>{(UVT)-10, (UVT)10}, DomainRange<UVT>{(UVT)-10, (UVT)10}}, true, (UVT)(1.e-5) })
-                .setTestSeed(seed);
-            test_binary<vec>(
+        test_binary<vec>(
                 NAME_INFO(division),
-                std::divides<VT>(),
-                [](const vec& v0, const vec& v1) { return v0 / v1; },
-                test_case,
-                RESOLVE_OVERLOAD(filter_div_ub));
-        }
-        else {
-            test_binary<vec>(
-                NAME_INFO(division),
-                std::divides<VT>(),
+                RESOLVE_OVERLOAD(local_division),
                 [](const vec& v0, const vec& v1) { return v0 / v1; },
                 createDefaultBinaryTestCase<vec>(seed),
-                RESOLVE_OVERLOAD(filter_div_ub));
-        }
+                RESOLVE_OVERLOAD(filter_div_ub)); 
     }
     TYPED_TEST(Bitwise, BitAnd) {
         using vec = TypeParam;
-        using VT = ValueType<TypeParam>;
         test_binary<vec>(
             NAME_INFO(bit_and),
             RESOLVE_OVERLOAD(local_and),
@@ -573,7 +557,6 @@ namespace {
     }
     TYPED_TEST(Bitwise, BitOr) {
         using vec = TypeParam;
-        using VT = ValueType<TypeParam>;
         test_binary<vec>(
             NAME_INFO(bit_or),
             RESOLVE_OVERLOAD(local_or),
@@ -582,7 +565,6 @@ namespace {
     }
     TYPED_TEST(Bitwise, BitXor) {
         using vec = TypeParam;
-        using VT = ValueType<TypeParam>;
         test_binary<vec>(
             NAME_INFO(bit_xor),
             RESOLVE_OVERLOAD(local_xor),
@@ -819,7 +801,9 @@ namespace {
         //scale
         ValueGen<float> generator_sc(1.f, 15.f, seed.add(1));
         //value
-        ValueGen<float> gen(min_val * 2.f, max_val * 2.f, seed.add(2));
+        float minv = static_cast<float>(static_cast<double>(min_val) * 2.0);
+        float maxv = static_cast<float>(static_cast<double>(max_val) * 2.0);
+        ValueGen<float> gen(minv, maxv, seed.add(2));
         for (int i = 0; i < trials; i++) {
             float scale = generator_sc.get();
             float inv_scale = 1.0f / static_cast<float>(scale);
@@ -965,7 +949,7 @@ namespace {
         using VT = ValueType<TypeParam>;
         constexpr VT min_val = std::numeric_limits<VT>::min();
         constexpr VT max_val = std::numeric_limits<VT>::max();
-        constexpr VT fake_zp = max_val > 256 ? 65535 : 47;
+        constexpr VT fake_zp = sizeof(VT)>1 ? static_cast<VT>(65535) : static_cast<VT>(47);
         auto test_case = TestingCase<vec>::getBuilder()
             .addDomain(CheckWithinDomains<VT>{ { DomainRange<VT>{min_val, max_val}, DomainRange<VT>{(VT)0, (VT)fake_zp}} })
             .setTestSeed(TestSeed());
@@ -982,8 +966,9 @@ namespace {
         using VT = ValueType<TypeParam>;
         constexpr VT min_val = std::numeric_limits<VT>::min();
         constexpr VT max_val = std::numeric_limits<VT>::max();
-        constexpr VT fake_zp = max_val > 256 ? 65535 : 47;
-        constexpr VT fake_qsix = max_val > 256 ? fake_zp + 12345 : fake_zp + 32;
+        constexpr VT fake_zp = sizeof(VT) > 1 ? static_cast<VT>(65535) : static_cast<VT>(47);
+        constexpr VT temp = sizeof(VT) > 1 ? static_cast<VT>(12345) : static_cast<VT>(32);
+        constexpr VT fake_qsix = fake_zp + temp;
         auto test_case = TestingCase<vec>::getBuilder()
             .addDomain(CheckWithinDomains<VT>{
                 {
