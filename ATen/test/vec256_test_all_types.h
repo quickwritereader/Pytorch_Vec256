@@ -1,5 +1,4 @@
 #pragma once
-#include <ATen/cpu/vec256/vec256.h>
 #include <ATen/native/Math.h>
 #include <gtest/gtest.h>
 #include <chrono>
@@ -13,6 +12,7 @@
 #include <math.h>
 #include <float.h>
 #include <algorithm>
+#include <ATen/cpu/vec256/vec256.h>
 #define CACHE_LINE 32
 #if defined(__GNUC__)
 #define CACHE_ALIGN __attribute__((aligned(CACHE_LINE)))

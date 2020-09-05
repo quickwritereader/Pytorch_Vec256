@@ -19,8 +19,6 @@
 #include <cmath>
 #include <type_traits>
 #include <bitset>
-
-#include <ATen/cpu/vec256/intrinsics.h>
 #include <ATen/Utils.h>
 #include <ATen/native/Copy.h>
 #include <ATen/native/Math.h>
