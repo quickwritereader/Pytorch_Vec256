@@ -4,7 +4,9 @@
 cmake_minimum_required (VERSION 3.8)
 
 project ("Vec256Test")
+if(MSVC)
 set(CMAKE_CXX_STANDARD 14)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
@@ -182,8 +184,8 @@ endif()
  
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")# -Wall -fstrict-aliasing  -fsanitize=undefined -fsanitize=float-cast-overflow")
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fsanitize=undefined -fsanitize=address  -fno-sanitize-recover=all  ")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall  -O3")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fsanitize=undefined -fsanitize=address  -fno-sanitize-recover=all -std=gnu++14  ")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall  -O3  -std=gnu++14 ")
 message("&&&& ${CMAKE_CXX_FLAGS} &&")
 
 
