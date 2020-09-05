@@ -873,27 +873,25 @@ namespace {
         using vec = TypeParam;
         using underlying = ValueType<vec>;
         constexpr int trials = 4000;
-        constexpr int min_val = std::numeric_limits<underlying>::min();
-        constexpr int max_val = std::numeric_limits<underlying>::max();
+        constexpr int min_val = -65535;
+        constexpr int max_val = 65535;
         constexpr int el_count = vint::size();
         CACHE_ALIGN c10::qint32 unit_int_vec[el_count];
         CACHE_ALIGN underlying expected_qint_vals[vec::size()];
         typename vec::int_vec_return_type  int_ret;
         auto seed = TestSeed();
-        //zero point
-        ValueGen<int32_t> generator_zp(min_val, max_val, seed);
+        //zero point and value
+        ValueGen<int32_t> generator(min_val, max_val, seed);
         //scale
-        ValueGen<float> generator_sc(1.f, 15.f, seed.add(1));
-        //value
-        ValueGen<int32_t> gen(-65535, 65535, seed.add(2));
+        ValueGen<float> generator_sc(1.f, 15.f, seed.add(1)); 
         for (int i = 0; i < trials; i++) {
             float multiplier = 1.f / (generator_sc.get());
-            auto zero_point_val = generator_zp.get();
+            auto zero_point_val = generator.get();
             int index = 0;
             for (int j = 0; j < vec::float_num_vecs(); j++) {
                 //generate vals
                 for (auto& v : unit_int_vec) {
-                    v = c10::qint32(gen.get());
+                    v = c10::qint32(generator.get());
                     expected_qint_vals[index] = requantize_from_int<underlying>(multiplier, zero_point_val, v.val_);
                     index++;
                 }
