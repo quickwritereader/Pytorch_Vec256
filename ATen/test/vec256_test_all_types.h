@@ -1,4 +1,5 @@
 #pragma once
+#pragma fp_contract (off)
 #include <ATen/native/Math.h>
 #include <gtest/gtest.h>
 #include <chrono>
@@ -24,7 +25,13 @@
 CACHE_ALIGN #define
 #define not_inline
 #endif
-
+#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#define TEST_AGAINST_DEFAULT 1
+#elif !definef(CPU_CAPABILITY_AVX) &&  !definef(CPU_CAPABILITY_AVX2) && !definef(CPU_CAPABILITY_VSX)
+#define TEST_AGAINST_DEFAULT 1
+#else
+#undef TEST_AGAINST_DEFAULT
+#endif
 #undef NAME_INFO
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
@@ -1102,7 +1109,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_abs(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_abs(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return std::abs(x);
 #else
     PreventFma noFma;
@@ -1122,7 +1129,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_multiply(T x, T y) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_multiply(Complex<T> x, Complex<T> y) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return x * y;
 #else
     //(a + bi)  * (c + di) = (ac - bd) + (ad + bc)i
@@ -1160,7 +1167,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_division(T x, T y) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_division(Complex<T> x, Complex<T> y) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return x / y;
 #else
     //re = (ac + bd)/abs_2()
@@ -1204,7 +1211,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_sqrt(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_sqrt(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return std::sqrt(x);
 #else 
     PreventFma noFma;
@@ -1229,7 +1236,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_asin(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_asin(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return std::asin(x);
 #else
     // asin(x)
@@ -1258,7 +1265,7 @@ std::enable_if_t<!is_complex<T>::value, T> local_acos(T x) {
 
 template <typename T>
 std::enable_if_t<is_complex<Complex<T>>::value, Complex<T>> local_acos(Complex<T> x) {
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
     return std::acos(x);
 #else
     // pi/2 - asin(x) 
@@ -1344,7 +1351,7 @@ T quantize_val(float scale, int64_t zero_point, float value) {
 }
 
 template <typename T>
-#if defined(CPU_CAPABILITY_DEFAULT) || defined(_MSC_VER)
+#if defined(TEST_AGAINST_DEFAULT)
 T requantize_from_int(float multiplier, int32_t zero_point, int32_t src) {
     auto xx = static_cast<float>(src) * multiplier;
     double xx2 = nearbyint(xx);

@@ -183,9 +183,12 @@ endif()
 
  
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")# -Wall -fstrict-aliasing  -fsanitize=undefined -fsanitize=float-cast-overflow")
-
+if(MSVC)
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O3 ")
+else()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fsanitize=undefined -fsanitize=address  -fno-sanitize-recover=all -std=gnu++14  ")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall  -O3  -std=gnu++14 ")
+endif()
 message("&&&& ${CMAKE_CXX_FLAGS} &&")
 
 

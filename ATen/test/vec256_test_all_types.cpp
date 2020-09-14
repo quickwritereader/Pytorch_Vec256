@@ -1,4 +1,5 @@
 #include <ATen/test/vec256_test_all_types.h>
+#pragma fp_contract (off)
 namespace {
 #if GTEST_HAS_TYPED_TEST
     template <typename T>
@@ -131,10 +132,11 @@ namespace {
     }
     TYPED_TEST(SignManipulation, Absolute) {
         using vec = TypeParam;
+        bool checkRelativeErr = is_complex<ValueType<TypeParam>>();
         test_unary<vec>(
             NAME_INFO(absolute), RESOLVE_OVERLOAD(local_abs),
             [](vec v) { return v.abs(); },
-            createDefaultUnaryTestCase<vec>(TestSeed()),
+            createDefaultUnaryTestCase<vec>(TestSeed(), false, checkRelativeErr),
             RESOLVE_OVERLOAD(filter_int_minimum) );
     }
     TYPED_TEST(SignManipulation, Negate) {
