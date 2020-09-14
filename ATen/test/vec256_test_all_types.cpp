@@ -1,5 +1,5 @@
 #include <ATen/test/vec256_test_all_types.h>
-#pragma fp_contract (off)
+
 namespace {
 #if GTEST_HAS_TYPED_TEST
     template <typename T>
