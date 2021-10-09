@@ -2,15 +2,15 @@
 # project specific logic here.
 #
 cmake_minimum_required (VERSION 3.8)
+project(Vec256Test)
 
-project ("Vec256Test")
 if(MSVC)
 set(CMAKE_CXX_STANDARD 14)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-
+message("------------${CMAKE_SYSTEM_NAME}----------")
 # so the build can find the generated header files
 
 list(APPEND CPU_INCLUDE ${CMAKE_CURRENT_BINARY_DIR})
@@ -19,6 +19,7 @@ include(CheckCXXCompilerFlag)
 
 include(FindVsx.cmake)
 include(FindAVX.cmake)
+include(FindZVECTOR.cmake)
 
 add_subdirectory(c10)
 link_directories(${CMAKE_BINARY_DIR}/c10)
@@ -69,6 +70,13 @@ if(CXX_VSX_FOUND)
     LIST(APPEND CPU_CAPABILITY_NAMES "VSX")
     LIST(APPEND CPU_CAPABILITY_FLAGS "${OPT_FLAG}  ${CXX_VSX_FLAGS}") 
 endif(CXX_VSX_FOUND)
+
+if(CXX_ZVECTOR_FOUND)
+message("Z____VECTOR")
+     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_ZVECTOR_CPU_DEFINITION")
+    LIST(APPEND CPU_CAPABILITY_NAMES "ZVECTOR")
+    LIST(APPEND CPU_CAPABILITY_FLAGS "${OPT_FLAG}  ${CXX_ZVECTOR_FLAGS}") 
+endif()
 
 list(LENGTH CPU_CAPABILITY_NAMES NUM_CPU_CAPABILITY_NAMES)
 math(EXPR NUM_CPU_CAPABILITY_NAMES "${NUM_CPU_CAPABILITY_NAMES}-1")
@@ -190,15 +198,41 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -fsanitize=undefined -
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall  -O3  -std=gnu++14 ")
 endif()
 message("&&&& ${CMAKE_CXX_FLAGS} &&")
-
-
+FILE(GLOB SOURCES_F  ${CMAKE_CURRENT_SOURCE_DIR}/ATen/*.cpp
+                     ${CMAKE_CURRENT_SOURCE_DIR}/ATen/test/vec_test_all_types.cpp
+                     ${CMAKE_CURRENT_SOURCE_DIR}/ATen/native/quantized/*.cpp
+                   )
+FILE(GLOB SOURCES_F2  ${CMAKE_CURRENT_SOURCE_DIR}/ATen/*.cpp
+                     ${CMAKE_CURRENT_SOURCE_DIR}/ATen/test/vec_m.cpp
+                     ${CMAKE_CURRENT_SOURCE_DIR}/ATen/native/quantized/*.cpp
+                   )
+message("--- ${SOURCES_F}")
   foreach(i RANGE ${NUM_CPU_CAPABILITY_NAMES})
-        set(test_name vec256_test_all_types)
+        set(test_name vec_test_all_types)
         list(GET CPU_CAPABILITY_NAMES ${i} CPU_CAPABILITY) 
         list(GET CPU_CAPABILITY_FLAGS ${i} FLAGS)  
         separate_arguments(FLAGS UNIX_COMMAND "${FLAGS}")
-        add_executable(${test_name}_${CPU_CAPABILITY} ${CMAKE_CURRENT_SOURCE_DIR}/ATen/test/vec256_test_all_types.cpp)
+        add_executable(${test_name}_${CPU_CAPABILITY} ${SOURCES_F})
         target_link_libraries(${test_name}_${CPU_CAPABILITY} ${DEPENDENCY_LIBS} gtest gtest_main)
+        target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE $<INSTALL_INTERFACE:include>)
+        target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
+        target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE ${CPU_INCLUDE})
+        target_compile_definitions(${test_name}_${CPU_CAPABILITY} PRIVATE CPU_CAPABILITY=${CPU_CAPABILITY}  CPU_CAPABILITY_${CPU_CAPABILITY})
+        target_compile_options(${test_name}_${CPU_CAPABILITY} PRIVATE  ${FLAGS})
+        if(NOT MSVC)
+              target_compile_options(${test_name}_${CPU_CAPABILITY} PRIVATE -Wno-ignored-qualifiers) 
+        endif(NOT MSVC)
+        add_test(NAME ${test_name}_${CPU_CAPABILITY} COMMAND $<TARGET_FILE:${test_name}_${CPU_CAPABILITY}>)
+  endforeach()
+
+
+    foreach(i RANGE ${NUM_CPU_CAPABILITY_NAMES})
+        set(test_name vec_m)
+        list(GET CPU_CAPABILITY_NAMES ${i} CPU_CAPABILITY) 
+        list(GET CPU_CAPABILITY_FLAGS ${i} FLAGS)  
+        separate_arguments(FLAGS UNIX_COMMAND "${FLAGS}")
+        add_executable(${test_name}_${CPU_CAPABILITY} ${SOURCES_F2})
+        target_link_libraries(${test_name}_${CPU_CAPABILITY} ${DEPENDENCY_LIBS} )
         target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE $<INSTALL_INTERFACE:include>)
         target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/include>)
         target_include_directories(${test_name}_${CPU_CAPABILITY} PRIVATE ${CPU_INCLUDE})
