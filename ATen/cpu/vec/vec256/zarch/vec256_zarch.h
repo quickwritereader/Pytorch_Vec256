@@ -1640,7 +1640,7 @@ public:
     Vectorized<T> inline operator*(const Vectorized<T>& b) const {
         //(a + bi)  * (c + di) = (ac - bd) + (ad + bc)i
         vinner_type bv = b.vec();
-    #if !(ZVECTOR_SIMULATE_X86_MULT)
+    #if !defined(ZVECTOR_SIMULATE_X86_MULT)
         // this is more z arch friendly than simulating horizontal from x86
         vinner_type vi = bv.mergeo();
         vinner_type vr = bv.mergee();
@@ -1663,7 +1663,7 @@ public:
         // re = (ac + bd)/abs_2()
         // im = (bc - ad)/abs_2()
         vinner_type bv = b.vec();
-    #if !(ZVECTOR_SIMULATE_X86_MULT)
+    #if !defined(ZVECTOR_SIMULATE_X86_MULT)
         vinner_type vi = bv.mergeo();
         vinner_type vr = bv.mergee();
         vinner_type abs_b = b.abs_2_().vec();
