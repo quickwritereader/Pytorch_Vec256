@@ -10,9 +10,9 @@
 #include <random>
 #include <vector>
 #include <complex>
-#include <algorithm>
 #include <math.h>
 #include <float.h>
+#include <algorithm>
 
 #if defined(CPU_CAPABILITY_AVX512)
 #define CACHE_LINE 64

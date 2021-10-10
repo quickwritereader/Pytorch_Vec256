@@ -87,7 +87,6 @@ using int_same_size_t = typename int_of_size<sizeof(T)>::type;
 
 // emulates Vectorized types
 #if defined(__s390x__)
-#warning("---zarch 000000-- ")
 template <class T, class TEMP=void>
 #else
 template <class T>
