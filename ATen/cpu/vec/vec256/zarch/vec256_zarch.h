@@ -164,7 +164,6 @@ namespace at {
                 return typename VecBinaryType<N>::type{};
             }
 
-
             template<>
             constexpr auto GetMask1<1>(const uint64_t mask) {
                 constexpr uint8_t t = (int)0xFF;
@@ -319,7 +318,6 @@ namespace at {
                 return ZSimdVectBinary<uint8_t>{4, 5, 6, 7, 0, 1, 2, 3, 12, 13, 14, 15, 8, 9, 10, 11};
             }
 
-
             template<typename T>
             struct Vectorized<T, std::enable_if_t<is_zarch_implemented<T>()> > {
             public:
@@ -341,7 +339,7 @@ namespace at {
 
                 C10_ALWAYS_INLINE Vectorized(vtype v) : _vec0{ v }, _vec1{ v } {}
                 C10_ALWAYS_INLINE Vectorized(vtype v1, vtype v2) : _vec0{ v1 }, _vec1{ v2 } {}
-                explicit C10_ALWAYS_INLINE Vectorized(T s) : _vec0{ vec_splats((ElementType)s) }, _vec1{ vec_splats((ElementType)s) } {}
+                C10_ALWAYS_INLINE Vectorized(T s) : _vec0{ vec_splats((ElementType)s) }, _vec1{ vec_splats((ElementType)s) } {}
 
                 static Vectorized<value_type> C10_ALWAYS_INLINE
                     loadu(const void* ptr, int count = size()) {
@@ -558,7 +556,6 @@ namespace at {
                     return Vectorized<T>{_vec0 / other._vec0, _vec1 / other._vec1};
                 }
 
-
                 Vectorized<T> C10_ALWAYS_INLINE operator&(const Vectorized<T>& other) const {
                     return Vectorized<T>{(vtype)(vecb0()& other.vecb0()),
                         (vtype)(vecb1()& other.vecb1())};
@@ -605,7 +602,7 @@ namespace at {
                 Vectorized<T> C10_ALWAYS_INLINE gt(const Vectorized<T>& other) const { return (*this > other) & Vectorized<T>((T)1.0); }
                 Vectorized<T> C10_ALWAYS_INLINE ge(const Vectorized<T>& other) const { return (*this >= other) & Vectorized<T>((T)1.0); }
                 Vectorized<T> C10_ALWAYS_INLINE lt(const Vectorized<T>& other) const { return (*this < other) & Vectorized<T>((T)1.0); }
-                Vectorized<T>  C10_ALWAYS_INLINEle(const Vectorized<T>& other) const { return (*this <= other) & Vectorized<T>((T)1.0); }
+                Vectorized<T> C10_ALWAYS_INLINE le(const Vectorized<T>& other) const { return (*this <= other) & Vectorized<T>((T)1.0); }
 
                 template<typename U = T, std::enable_if_t<!std::is_unsigned<U>::value, int> = 0>
                 Vectorized<U> C10_ALWAYS_INLINE abs() const {
@@ -693,7 +690,6 @@ namespace at {
                     return sqrt().reciprocal();
                 }
 
-
                 template< typename U = T, std::enable_if_t<std::is_same<U, float>::value, int> = 0>
                 inline Vectorized<T> mapOrdinary(float (* const f)(float)) const {
                     float a00 = f(_vec0[0]); float a01 = f(_vec0[1]); float a02 = f(_vec0[2]); float a03 = f(_vec0[3]);
@@ -707,14 +703,16 @@ namespace at {
                 }
 
                 template<typename U = T, std::enable_if_t<std::is_same<U, float>::value, int> = 0>
-                inline Vectorized<T> mapOrdinary(float (* const f)(float), const Vectorized<T>& b) const {
-                    float a00 = f(_vec0[0], b._vec0[0]); float a01 = f(_vec0[1], b._vec0[1]); float a02 = f(_vec0[2], b._vec0[2]); float a03 = f(_vec0[3], b._vec0[3]);
-                    float a10 = f(_vec1[0], b._vec1[0]); float a11 = f(_vec1[1], b._vec1[1]); float a12 = f(_vec1[2], b._vec1[2]); vtype a13 = f(_vec1[3], b._vec1[3]);
+                inline Vectorized<T> mapOrdinary(float (* const f)(float, float), const Vectorized<T>& b) const {
+                    float a00 = f(_vec0[0], b._vec0[0]); float a01 = f(_vec0[1], b._vec0[1]);
+                    float a02 = f(_vec0[2], b._vec0[2]); float a03 = f(_vec0[3], b._vec0[3]);
+                    float a10 = f(_vec1[0], b._vec1[0]); float a11 = f(_vec1[1], b._vec1[1]);
+                    float a12 = f(_vec1[2], b._vec1[2]); float a13 = f(_vec1[3], b._vec1[3]);
                     return Vectorized<T>{a00, a01, a02, a03, a10, a11, a12, a13};
                 }
 
                 template<typename U = T, std::enable_if_t<std::is_same<U, double>::value, int> = 0>
-                inline Vectorized<T> mapOrdinary(double (* const f)(double), const Vectorized<T>& b) const {
+                inline Vectorized<T> mapOrdinary(double (* const f)(double, double), const Vectorized<T>& b) const {
                     return Vectorized<T>(f(_vec0[0], b._vec0[0]), f(_vec0[1], b._vec0[1]), f(_vec1[0], b._vec1[0]), f(_vec1[1], b._vec1[1]));
                 }
 
@@ -961,7 +959,6 @@ inline minimum(                                                                 
   return a.minimum(b);                                                           \
 }
 
-
 #define DEFINE_CLAMP_MAXMIN_FUNCS(typex)                                 \
   DEFINE_MAXMIN_FUNCS(typex)                                             \
   template <>                                                            \
@@ -981,7 +978,6 @@ inline minimum(                                                                 
       const Vectorized<typex>& a, const Vectorized<typex>& max) {        \
     return  minimum(a, max);                                           \
   }
-
 
             DEFINE_CLAMP_MAXMIN_FUNCS(int8_t)
                 DEFINE_CLAMP_MAXMIN_FUNCS(uint8_t)
@@ -1141,7 +1137,6 @@ inline minimum(                                                                 
                 using type = int16_t;
             };
 
-
             template<typename T, typename V = typename unpack_type<T>::type>
             std::pair<Vectorized<V>, Vectorized<V>> unpack(const Vectorized<T>& x) {
                 auto vec0 = vec_unpackh(x.vec0());
@@ -1184,7 +1179,6 @@ inline minimum(                                                                 
             //////////////////////////////////QUANT///////////////////////////////////////////
             template<typename T>
             struct Vectorized<T, std::enable_if_t<is_zarch_implemented_quant<T>()>> {
-
 
             public:
                 using value_type = typename T::underlying;
@@ -1554,7 +1548,6 @@ inline minimum(                                                                 
             template<typename T>
             struct Vectorized<T, std::enable_if_t<is_zarch_implemented_complex<T>()>> {
 
-
             public:
                 using underline_type = decltype(std::declval<T>().imag());
                 using value_type = T;
@@ -1645,7 +1638,6 @@ inline minimum(                                                                 
                     else return set_inner<Z + 1, C>(a, b, count);
                 }
 
-
                 static Vectorized<T> set(const Vectorized<T>& a, const Vectorized<T>& b, size_t count = size()) {
                     if (count == 0) return a;
                     return set_inner<1, size()>(a, b, count);
@@ -1655,35 +1647,61 @@ inline minimum(                                                                 
                 T& operator[](int idx) = delete;
 
                 template< typename U = T, std::enable_if_t<std::is_same<U, c10::complex<float>>::value, int> = 0>
-                Vectorized<T> mapOrdinary(c10::complex<float>(* const f)(const c10::complex<float>&)) const {
+                Vectorized<T> mapOrdinary(T(* const f)(const T&)) const {
                     auto v0 = _vec.vec0();
                     auto v1 = _vec.vec1();
-                    return Vectorized<T>{f(c10::complex<float>(v0[0], v0[1])), f(c10::complex<float>(v0[2], v0[3])),
-                        f(c10::complex<float>(v1[0], v1[1])), f(c10::complex<float>(v1[2], v1[3]))};
+                    return Vectorized<T>{f(T(v0[0], v0[1])), f(T(v0[2], v0[3])),
+                        f(T(v1[0], v1[1])), f(T(v1[2], v1[3]))};
                 }
 
                 template< typename U = T, std::enable_if_t<std::is_same<U, c10::complex<double>>::value, int> = 0>
-                Vectorized<c10::complex<double>> mapOrdinary(c10::complex<double>(* const f)(const c10::complex<double>&)) const {
+                Vectorized<U> mapOrdinary(T(* const f)(const T&)) const {
                     auto v0 = _vec.vec0();
                     auto v1 = _vec.vec1();
-                    return Vectorized<T>{f(c10::complex<double>(v0[0], v0[1])),
-                        f(c10::complex<double>(v1[0], v1[1]))};
+                    return Vectorized<T>{f(T(v0[0], v0[1])),
+                        f(T(v1[0], v1[1]))};
                 }
 
                 template< typename U = T, std::enable_if_t<std::is_same<U, c10::complex<float>>::value, int> = 0>
-                Vectorized<T> mapOrdinary(c10::complex<float>(* const f)(c10::complex<float>)) const {
+                Vectorized<T> mapOrdinary(T(* const f)(T)) const {
                     auto v0 = _vec.vec0();
                     auto v1 = _vec.vec1();
-                    return Vectorized<T>{f(c10::complex<float>(v0[0], v0[1])), f(c10::complex<float>(v0[2], v0[3])),
-                        f(c10::complex<float>(v1[0], v1[1])), f(c10::complex<float>(v1[2], v1[3]))};
+                    return Vectorized<T>{f(T(v0[0], v0[1])), f(T(v0[2], v0[3])),
+                        f(T(v1[0], v1[1])), f(T(v1[2], v1[3]))};
                 }
 
                 template< typename U = T, std::enable_if_t<std::is_same<U, c10::complex<double>>::value, int> = 0>
-                Vectorized<c10::complex<double>> mapOrdinary(c10::complex<double>(* const f)(c10::complex<double>)) const {
+                Vectorized<T> mapOrdinary(T(* const f)(T)) const {
                     auto v0 = _vec.vec0();
                     auto v1 = _vec.vec1();
-                    return Vectorized<T>{f(c10::complex<double>(v0[0], v0[1])),
-                        f(c10::complex<double>(v1[0], v1[1]))};
+                    return Vectorized<T>{f(T(v0[0], v0[1])),
+                        f(T(v1[0], v1[1]))};
+                }
+
+                template<typename U = T, std::enable_if_t<std::is_same<U, c10::complex<float>>::value, int> = 0>
+                inline Vectorized<T> mapOrdinary(T(* const f)(const T&, const T&), const Vectorized<T>& b) const {
+                    auto v0 = _vec.vec0();
+                    auto v1 = _vec.vec1();
+                    auto bvec = b.vec();
+                    auto b0 = bvec.vec0();
+                    auto b1 = bvec.vec1();
+                    T a00 = f(T(v0[0], v0[1]), T(b0[0], b0[1]));
+                    T a01 = f(T(v0[2], v0[3]), T(b0[2], b0[3]));
+                    T a02 = f(T(v1[0], v1[1]), T(b1[0], b1[1]));
+                    T a03 = f(T(v1[2], v1[3]), T(b1[2], b1[3]));
+                    return Vectorized<T>{a00, a01, a02, a03};
+                }
+
+                template<typename U = T, std::enable_if_t<std::is_same<U, c10::complex<double>>::value, int> = 0>
+                inline Vectorized<T> mapOrdinary(T(* const f)(const T&, const T&), const Vectorized<T>& b) const {
+                    auto v0 = _vec.vec0();
+                    auto v1 = _vec.vec1();
+                    auto bvec = b.vec();
+                    auto b0 = bvec.vec0();
+                    auto b1 = bvec.vec1();
+                    U a00 = f(U(v0[0], v0[1]), U(b0[0], b0[1]));
+                    U a01 = f(U(v1[0], v1[1]), U(b1[0], b1[1]));
+                    return Vectorized<T>{a00, a01};
                 }
 
                 Vectorized<T> C10_ALWAYS_INLINE operator+(const Vectorized<T>& other) const {
@@ -1845,7 +1863,6 @@ inline minimum(                                                                 
                 Vectorized<T> C10_ALWAYS_INLINE eq(const Vectorized<T>& other) const { return Vectorized<T>{_vec.eq(other._vec)}; }
                 Vectorized<T> C10_ALWAYS_INLINE ne(const Vectorized<T>& other) const { return Vectorized<T>{_vec.ne(other._vec)}; }
 
-
                 Vectorized<T> real() const {
                     return Vectorized<T>(_vec & vinner_type(real_mask<underline_type>()));
                 }
@@ -1898,6 +1915,10 @@ inline minimum(                                                                 
                     return mapOrdinary(at::native::sgn_impl);
                 }
 
+                Vectorized<T> pow(const Vectorized<T>& exp) const {
+                    return mapOrdinary(std::pow, exp);
+                }
+
                 Vectorized<T> sqrt() const {
                     return mapOrdinary(std::sqrt);
                 }
@@ -1948,7 +1969,6 @@ inline minimum(                                                                 
                 }
 
             };
-
 
             template <typename T, std::enable_if_t<(sizeof(T) == 8), int> = 0>
             std::pair<Vectorized<T>, Vectorized<T>> inline inner_interleave2(
@@ -2087,7 +2107,6 @@ inline minimum(                                                                 
                 (const Vectorized<int64_t>& a, const Vectorized<int64_t>& b) {
                 return inner_deinterleave2<int64_t>(a, b);
             }
-
 
 #undef DEFINE_CLAMP_MAXMIN_FUNCS
 #undef DEFINE_MAXMIN_FUNCS
