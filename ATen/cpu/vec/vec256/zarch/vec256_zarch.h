@@ -129,8 +129,13 @@ namespace at {
             // it can be used to emulate blend faster
             template<int Z>
             constexpr int blendChoice(const uint64_t mask) {
-                static_assert(Z <= 1 || Z > 8, "not implemented");
+                static_assert(Z < 1 || Z>8, "not implemented");
                 return blendChoiceInner(mask);
+            }
+
+            template<>
+            constexpr int blendChoice<1>(const uint64_t mask) {
+                return blendChoiceInner(mask, 0x0000FFFF, 0xFFFF0000);
             }
 
             template<>
@@ -159,6 +164,38 @@ namespace at {
                 return typename VecBinaryType<N>::type{};
             }
 
+
+            template<>
+            constexpr auto GetMask1<1>(const uint64_t mask) {
+                constexpr uint8_t t = (int)0xFF;
+                uint8_t g0 = (mask & 1) * t;
+                uint8_t g1 = ((mask & 2) >> 1) * t;
+                uint8_t g2 = ((mask & 4) >> 2) * t;
+                uint8_t g3 = ((mask & 8) >> 3) * t;
+                uint8_t g4 = ((mask & 16) >> 4) * t;
+                uint8_t g5 = ((mask & 32) >> 5) * t;
+                uint8_t g6 = ((mask & 64) >> 6) * t;
+                uint8_t g7 = ((mask & 128) >> 7) * t;
+                uint8_t g8 = ((mask & 256) >> 8) * t;
+                uint8_t g9 = ((mask & 512) >> 9) * t;
+                uint8_t g10 = ((mask & 1024) >> 10) * t;
+                uint8_t g11 = ((mask & 2048) >> 11) * t;
+                uint8_t g12 = ((mask & 4096) >> 12) * t;
+                uint8_t g13 = ((mask & 8192) >> 13) * t;
+                uint8_t g14 = ((mask & 16384) >> 14) * t;
+                uint8_t g15 = ((mask & 32768) >> 15) * t;
+                return (typename VecBinaryType<1>::type) {
+                    g0, g1, g2, g3, g4, g5, g6, g7,
+                        g8, g9, g10, g11, g12, g13, g14, g15
+                };
+            }
+
+            template<>
+            constexpr auto  GetMask2<1>(const uint64_t mask) {
+                uint64_t mask2 = (mask & 0xFFFFFFFF) >> 16;
+                return GetMask1<1>(mask2);
+            }
+
             template<>
             constexpr auto GetMask1<2>(const uint64_t mask) {
                 constexpr uint16_t t = (int)0xFFFF;
@@ -175,7 +212,7 @@ namespace at {
 
             template<>
             constexpr auto  GetMask2<2>(const uint64_t mask) {
-                uint64_t mask2 = (mask & 0xFFFF) >> 16;
+                uint64_t mask2 = (mask & 0xFFFF) >> 8;
                 return GetMask1<2>(mask2);
             }
 
@@ -242,6 +279,10 @@ namespace at {
                 return 0x0A;
             }
 
+            constexpr int64_t allbitset(int16_t x) {
+                int64_t onex = 1;
+                return (onex << x) - onex;
+            }
 
             ZSimdVect<float> vec_mergee(ZSimdVect<float> x, ZSimdVect<float> y) {
                 constexpr ZSimdVectBinary<uint8_t> mergee_mask{ 0, 1, 2, 3, 16, 17, 18, 19 ,8, 9, 10, 11, 24, 25, 26, 27 };
@@ -368,55 +409,54 @@ namespace at {
                     T s9, T s10, T s11, T s12, T s13, T s14, T s15, T s16)
                     : _vec0{ s1, s2, s3, s4, s5, s6, s7, s8 }, _vec1{ s9, s10, s11, s12, s13, s14, s15, s16 } {}
 
+                template<typename U = T, std::enable_if_t<(sizeof(U) == 1), int> = 0>
+                C10_ALWAYS_INLINE Vectorized(T s1, T s2, T s3, T s4, T s5, T s6, T s7, T s8,
+                    T s9, T s10, T s11, T s12, T s13, T s14, T s15, T s16,
+                    T s17, T s18, T s19, T s20, T s21, T s22, T s23, T s24,
+                    T s25, T s26, T s27, T s28, T s29, T s30, T s31, T s32) :
+                    _vec0{ s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16 },
+                    _vec1{ s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27, s28, s29, s30, s31, s32 }{}
+
                 template <typename step_t, typename U = T>
                 static std::enable_if_t<sizeof(U) == 8, Vectorized<T>>
                     arange(T base = 0, step_t step = static_cast<step_t>(1)) {
                     return Vectorized<T>(
-                        base,
-                        base + step,
-                        base + 2 * step,
-                        base + 3 * step);
+                        base, base + step, base + 2 * step, base + 3 * step);
                 }
 
                 template <typename step_t, typename U = T>
                 static std::enable_if_t<sizeof(U) == 4, Vectorized<T>>
                     arange(T base = 0, step_t step = static_cast<step_t>(1)) {
                     return Vectorized<T>(
-                        base,
-                        base + step,
-                        base + 2 * step,
-                        base + 3 * step,
-                        base + 4 * step,
-                        base + 5 * step,
-                        base + 6 * step,
-                        base + 7 * step);
+                        base, base + step, base + 2 * step, base + 3 * step,
+                        base + 4 * step, base + 5 * step, base + 6 * step, base + 7 * step);
                 }
 
                 template <typename step_t, typename U = T>
                 static std::enable_if_t<sizeof(U) == 2, Vectorized<T>>
                     arange(T base = 0, step_t step = static_cast<step_t>(1)) {
                     return Vectorized<T>(
-                        base,
-                        base + step,
-                        base + 2 * step,
-                        base + 3 * step,
-                        base + 4 * step,
-                        base + 5 * step,
-                        base + 6 * step,
-                        base + 7 * step,
-                        base + 8 * step,
-                        base + 9 * step,
-                        base + 10 * step,
-                        base + 11 * step,
-                        base + 12 * step,
-                        base + 13 * step,
-                        base + 14 * step,
-                        base + 15 * step);
+                        base, base + step, base + 2 * step, base + 3 * step,
+                        base + 4 * step, base + 5 * step, base + 6 * step, base + 7 * step,
+                        base + 8 * step, base + 9 * step, base + 10 * step, base + 11 * step,
+                        base + 12 * step, base + 13 * step, base + 14 * step, base + 15 * step);
                 }
 
+                template <typename step_t, typename U = T>
+                static std::enable_if_t<sizeof(U) == 1, Vectorized<T>>
+                    arange(T base = 0, step_t step = static_cast<step_t>(1)) {
+                    return Vectorized<T>(
+                        base, base + step, base + 2 * step, base + 3 * step,
+                        base + 4 * step, base + 5 * step, base + 6 * step, base + 7 * step,
+                        base + 8 * step, base + 9 * step, base + 10 * step, base + 11 * step,
+                        base + 12 * step, base + 13 * step, base + 14 * step, base + 15 * step,
+                        base + 16 * step, base + 17 * step, base + 18 * step, base + 19 * step,
+                        base + 20 * step, base + 21 * step, base + 22 * step, base + 23 * step,
+                        base + 24 * step, base + 25 * step, base + 26 * step, base + 27 * step,
+                        base + 28 * step, base + 29 * step, base + 30 * step, base + 31 * step);
+                }
 
                 //blend section
-
                 template <int64_t mask>
                 static std::enable_if_t<blendChoice<sizeof(T)>(mask) == 0, Vectorized<T>> C10_ALWAYS_INLINE
                     blend(const Vectorized<T>& a, const Vectorized<T>& b) {
@@ -481,16 +521,16 @@ namespace at {
                         (vtype)vec_sel(a._vec1, b._vec1, mask_2nd) };
                 }
 
-                template<int Z, int C>
+                template<int16_t Z, int16_t C>
                 static inline std::enable_if_t<(Z >= C), Vectorized<T>>
                     set_inner(const Vectorized<T>& a, const Vectorized<T>& b, size_t count) {
                     return b;
                 }
 
-                template<int Z, int C>
+                template<int16_t Z, int16_t C>
                 static inline std::enable_if_t<(Z < C), Vectorized<T>>
                     set_inner(const Vectorized<T>& a, const Vectorized<T>& b, size_t count) {
-                    if (count == Z) return blend<((1 << Z) - 1)>(a, b);
+                    if (count == Z) return blend<allbitset(Z)>(a, b);
                     else return set_inner<Z + 1, C>(a, b, count);
                 }
 
@@ -942,7 +982,10 @@ inline minimum(                                                                 
     return  minimum(a, max);                                           \
   }
 
-            DEFINE_CLAMP_MAXMIN_FUNCS(int16_t)
+
+            DEFINE_CLAMP_MAXMIN_FUNCS(int8_t)
+                DEFINE_CLAMP_MAXMIN_FUNCS(uint8_t)
+                DEFINE_CLAMP_MAXMIN_FUNCS(int16_t)
                 DEFINE_CLAMP_MAXMIN_FUNCS(int32_t)
                 DEFINE_CLAMP_MAXMIN_FUNCS(int64_t)
                 DEFINE_CLAMP_MAXMIN_FUNCS(float)
@@ -1589,16 +1632,16 @@ inline minimum(                                                                 
                         base + value_type(3) * step);
                 }
 
-                template<int Z, int C>
+                template<int16_t Z, int16_t C>
                 static inline std::enable_if_t<(Z >= C), Vectorized<T>>
                     set_inner(const Vectorized<T>& a, const Vectorized<T>& b, size_t count) {
                     return b;
                 }
 
-                template<int Z, int C>
+                template<int16_t Z, int16_t C>
                 static inline std::enable_if_t<(Z < C), Vectorized<T>>
                     set_inner(const Vectorized<T>& a, const Vectorized<T>& b, size_t count) {
-                    if (count == Z) return blend<(1 << Z) - 1>(a, b);
+                    if (count == Z) return blend<allbitset(Z)>(a, b);
                     else return set_inner<Z + 1, C>(a, b, count);
                 }
 
